@@ -1,0 +1,59 @@
+{
+  "name": "gitdesk",
+  "productName": "GitDesk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A focused, local-first desktop Git client",
+  "author": "GitDesk contributors",
+  "license": "MIT",
+  "main": "out/main/index.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "start": "electron .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:desktop": "node scripts/smoke.mjs",
+    "test:packaged": "node scripts/smoke.mjs --packaged",
+    "build": "npm run typecheck && vite build && node scripts/build-main.mjs",
+    "package:linux": "npm run build && electron-builder --linux dir tar.gz --publish never",
+    "package:appimage": "npm run build && electron-builder --linux AppImage --publish never",
+    "package": "npm run build && electron-builder --publish never"
+  },
+  "dependencies": {
+    "lucide-react": "^1.45.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "electron": "^44.3.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.27.0",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.0"
+  },
+  "build": {
+    "appId": "app.gitdesk.desktop",
+    "productName": "GitDesk",
+    "directories": { "output": "release" },
+    "files": ["out/**/*", "dist/**/*", "assets/icon.png", "package.json"],
+    "asar": true,
+    "linux": {
+      "target": ["tar.gz", "AppImage"],
+      "category": "Development",
+      "icon": "assets/icon.png",
+      "executableName": "gitdesk",
+      "artifactName": "GitDesk-${version}-${arch}.${ext}"
+    },
+    "mac": { "category": "public.app-category.developer-tools", "target": ["dmg"] },
+    "win": { "target": ["nsis"] }
+  }
+}
