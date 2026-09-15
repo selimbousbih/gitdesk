@@ -645,9 +645,17 @@ export function createGitService(options: { dataDir: string; onEvent?: (event: A
     branch: route('branch', async (args, context) => {
       const ctx = repo(context);
       await validateBranch(ctx, args.name);
-      const current = await guardIdle(ctx, args.action === 'create' || args.action === 'switch');
+      const current = await guardIdle(ctx, args.action === 'switch');
       if (args.action === 'create') {
         const from = args.from ? await namedRef(ctx, args.from) : undefined;
+        if (await refExists(ctx, `refs/heads/${args.name}`)) throw new GitError('BRANCH_EXISTS', 'A local branch with that name already exists.');
+        if (current.files.length && !args.dirtyAction) {
+          throw new GitError('DIRTY_WORKTREE', 'Choose whether to bring your local changes to the new branch or stash them first.');
+        }
+        if (current.files.length && args.dirtyAction === 'stash') {
+          if (current.unborn) throw new GitError('COMMIT_REQUIRED', 'Create an initial commit before stashing changes.');
+          await runner.run(ctx.root, ['stash', 'push', '--include-untracked', '--message', `Before creating branch ${args.name}`], ctx);
+        }
         await runner.run(ctx.root, ['switch', '--no-track', '-c', args.name, ...(from ? ['--', from] : [])], ctx);
       } else if (args.action === 'switch') {
         const ref = await namedRef(ctx, args.name);

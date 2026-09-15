@@ -174,7 +174,12 @@ export interface CommandMap {
   discard: Command<RepoPaths & { confirmed: boolean }, void>;
   ignore: Command<RepoPaths, void>;
   branches: Command<RepoArgs, Branch[]>;
-  branch: Command<RepoArgs & { action: 'create' | 'switch' | 'rename' | 'delete'; name: string; from?: string; confirmed?: boolean }, void>;
+  branch: Command<RepoArgs & (
+    | { action: 'create'; name: string; from?: string; dirtyAction?: 'carry' | 'stash' }
+    | { action: 'switch'; name: string }
+    | { action: 'rename'; name: string; from?: string }
+    | { action: 'delete'; name: string; confirmed?: boolean }
+  ), void>;
   network: Command<RepoArgs & { action: 'fetch' | 'pull' | 'pullRebase' | 'push' | 'forcePush'; remote?: string; confirmed?: boolean }, void>;
   integrate: Command<RepoArgs & { action: 'merge' | 'rebase'; branch: string }, void>;
   commitAction: Command<RepoArgs & { action: 'revert' | 'cherryPick' | 'checkout'; sha: string; confirmed: boolean }, void>;

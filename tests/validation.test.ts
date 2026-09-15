@@ -31,6 +31,10 @@ describe('narrow desktop IPC validation', () => {
     for (const name of ['--exec=touch', '-b', 'main\n--force', 'main branch']) {
       expect(() => parseCommandArgs('branch', { repoId, action: 'switch', name })).toThrow();
     }
+    const create = parseCommandArgs('branch', { repoId, action: 'create', name: 'feature', dirtyAction: 'carry' });
+    expect(create.action === 'create' && create.dirtyAction).toBe('carry');
+    expect(() => parseCommandArgs('branch', { repoId, action: 'create', name: 'feature', dirtyAction: 'discard' })).toThrow();
+    expect(() => parseCommandArgs('branch', { repoId, action: 'switch', name: 'feature', dirtyAction: 'carry' })).toThrow();
     expect(() => parseCommandArgs('diff', { repoId, path: 'x', source: 'commit', commit: '--output=x' })).toThrow();
     expect(() => parseCommandArgs('history', { repoId, skip: -1, limit: 30, search: '' })).toThrow();
     expect(() => parseCommandArgs('history', { repoId, skip: 0, limit: 100_000, search: '' })).toThrow();

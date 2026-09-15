@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DiffView, parseDiff } from '../src/renderer/diff';
+import { BranchDialog } from '../src/renderer/dialogs';
+import type { RepoStatus } from '../src/shared/api';
+import type { Perform } from '../src/renderer/core';
 
 describe('unified diff rendering', () => {
   it('counts root-commit additions without imaginary old line numbers', () => {
@@ -52,5 +55,22 @@ describe('unified diff rendering', () => {
     }} />);
     expect(html).toContain('1,500 of 1,601 lines');
     expect(html).toContain('Show more (up to 12,000)');
+  });
+});
+
+describe('branch creation dialog', () => {
+  it('asks whether dirty worktree changes should be carried or stashed', () => {
+    const status: RepoStatus = {
+      branch: 'main', head: 'a'.repeat(40), unborn: false, detached: false, upstream: null, ahead: 0, behind: 0,
+      files: [{ path: 'changed.txt', index: 'M', worktree: '.', staged: true, unstaged: false, untracked: false, conflicted: false }],
+      remotes: [], operation: null,
+    };
+    const perform = (async () => undefined) as Perform;
+    const html = renderToStaticMarkup(<BranchDialog mode="create" repo={{ id: 'dc695ce2-28f4-43cf-bb13-6926f658d286', name: 'repo', path: '/repo' }}
+      status={status} perform={perform} confirm={async () => true} busy={false} onClose={() => undefined} />);
+    expect(html).toContain('Uncommitted changes');
+    expect(html).toContain('Bring changes to the new branch');
+    expect(html).toContain('Stash changes before creating the branch');
+    expect(html).not.toContain('Commit or stash your local changes before creating');
   });
 });

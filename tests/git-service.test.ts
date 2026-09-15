@@ -319,6 +319,36 @@ describe('index, exact paths, history, and diffs', () => {
 });
 
 describe('branches, network, and force-with-lease', () => {
+  it('carries or stashes dirty worktrees when creating a branch', async () => {
+    const carried = await repository('carried');
+    await commit(carried, 'Initial', { 'tracked.txt': 'base\n' });
+    await put(carried, 'tracked.txt', 'staged\n');
+    await handlers.stage({ repoId: carried.id, paths: ['tracked.txt'], stage: true });
+    await put(carried, 'tracked.txt', 'unstaged\n');
+    await put(carried, 'untracked.txt', 'untracked\n');
+    await handlers.branch({ repoId: carried.id, action: 'create', name: 'with-changes', dirtyAction: 'carry' });
+    const carriedStatus = await handlers.status({ repoId: carried.id });
+    expect(carriedStatus.branch).toBe('with-changes');
+    expect(carriedStatus.files.find(file => file.path === 'tracked.txt')).toMatchObject({ staged: true, unstaged: true });
+    expect(carriedStatus.files.find(file => file.path === 'untracked.txt')).toMatchObject({ untracked: true });
+    expect(await git(carried.path, ['show', ':tracked.txt'])).toBe('staged');
+    expect(await readFile(path.join(carried.path, 'tracked.txt'), 'utf8')).toBe('unstaged\n');
+
+    const stashed = await repository('stashed');
+    await commit(stashed, 'Initial', { 'tracked.txt': 'base\n' });
+    await put(stashed, 'tracked.txt', 'staged\n');
+    await handlers.stage({ repoId: stashed.id, paths: ['tracked.txt'], stage: true });
+    await put(stashed, 'untracked.txt', 'untracked\n');
+    await handlers.branch({ repoId: stashed.id, action: 'create', name: 'without-changes', dirtyAction: 'stash' });
+    expect(await handlers.status({ repoId: stashed.id })).toMatchObject({ branch: 'without-changes', files: [] });
+    expect(await handlers.stashes({ repoId: stashed.id })).toEqual([
+      expect.objectContaining({ message: 'On main: Before creating branch without-changes' }),
+    ]);
+    await handlers.stash({ repoId: stashed.id, action: 'pop', ref: 'stash@{0}', confirmed: true });
+    expect((await handlers.status({ repoId: stashed.id })).files.map(file => file.path).sort()).toEqual(['tracked.txt', 'untracked.txt']);
+    expect(await git(stashed.path, ['show', ':tracked.txt'])).toBe('staged');
+  });
+
   it('guards dirty trees, protects default/unmerged branches, validates refs, and confirms amend and detached checkout', async () => {
     const repo = await repository();
     const initial = await commit(repo, 'Initial');

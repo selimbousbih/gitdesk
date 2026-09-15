@@ -40,7 +40,12 @@ export const commandSchemas = {
   discard: z.object({ ...repo, paths, confirmed: z.boolean() }).strict(),
   ignore: z.object({ ...repo, paths }).strict(),
   branches: z.object(repo).strict(),
-  branch: z.object({ ...repo, action: z.enum(['create', 'switch', 'rename', 'delete']), name: ref, from: ref.optional(), confirmed: confirm }).strict(),
+  branch: z.discriminatedUnion('action', [
+    z.object({ ...repo, action: z.literal('create'), name: ref, from: ref.optional(), dirtyAction: z.enum(['carry', 'stash']).optional() }).strict(),
+    z.object({ ...repo, action: z.literal('switch'), name: ref }).strict(),
+    z.object({ ...repo, action: z.literal('rename'), name: ref, from: ref.optional() }).strict(),
+    z.object({ ...repo, action: z.literal('delete'), name: ref, confirmed: confirm }).strict(),
+  ]),
   network: z.object({ ...repo, action: z.enum(['fetch', 'pull', 'pullRebase', 'push', 'forcePush']), remote: remoteName.optional(), confirmed: confirm }).strict(),
   integrate: z.object({ ...repo, action: z.enum(['merge', 'rebase']), branch: ref }).strict(),
   commitAction: z.object({ ...repo, action: z.enum(['revert', 'cherryPick', 'checkout']), sha, confirmed: z.boolean() }).strict(),

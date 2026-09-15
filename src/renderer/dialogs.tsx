@@ -216,7 +216,10 @@ export function BranchDialog({ mode, repo, status, perform, confirm, busy, onClo
   const [name, setName] = useState('');
   const [source, setSource] = useState(status.detached ? status.head ?? '' : status.branch);
   const [target, setTarget] = useState('');
+  const [dirtyAction, setDirtyAction] = useState<'carry' | 'stash'>('carry');
   const action = useAction();
+  const hasChanges = status.files.length > 0;
+  const hasConflicts = status.files.some(file => file.conflicted);
   const candidates = (branches.data ?? []).filter(branch => mode === 'delete' ? !branch.remote && !branch.current
     : mode === 'rename' ? !branch.remote : !branch.current);
   const titles = { create: 'Create a branch', rename: 'Rename a branch', delete: 'Delete a branch', merge: 'Merge into current branch', rebase: 'Rebase current branch' };
@@ -235,7 +238,10 @@ export function BranchDialog({ mode, repo, status, perform, confirm, busy, onClo
         await perform('branch', { repoId: repo.id, action: 'delete', name: selected, confirmed: true });
       } else if (mode === 'rename') {
         await perform('branch', { repoId: repo.id, action: 'rename', name: name.trim(), from: selected });
-      } else await perform('branch', { repoId: repo.id, action: 'create', name: name.trim(), ...(source.trim() ? { from: source.trim() } : {}) });
+      } else await perform('branch', {
+        repoId: repo.id, action: 'create', name: name.trim(), ...(source.trim() ? { from: source.trim() } : {}),
+        ...(hasChanges ? { dirtyAction } : {}),
+      });
       onClose();
     });
   };
@@ -252,17 +258,25 @@ export function BranchDialog({ mode, repo, status, perform, confirm, busy, onClo
       {(mode === 'create' || mode === 'rename') && <Field label={mode === 'rename' ? 'New branch name' : 'Branch name'}>
         <input data-autofocus={mode === 'create' || undefined} required value={name} placeholder="feature/my-change" maxLength={1024} onChange={event => setName(event.target.value)} disabled={busy} />
       </Field>}
-      {mode === 'create' && !status.unborn && <Field label="Create from" hint="The new branch will be checked out. Creating a branch requires a clean working tree; commit or stash your changes first.">
+      {mode === 'create' && !status.unborn && <Field label="Create from" hint="The new branch will be checked out.">
         <input value={source} onChange={event => setSource(event.target.value)} list="branch-sources" disabled={busy} />
         <datalist id="branch-sources">{branches.data?.map(branch => <option key={branch.name} value={branch.name} />)}</datalist>
       </Field>}
       {mode === 'create' && status.unborn && <p className="inset-message">This repository has no commits. Create the first commit before creating another branch.</p>}
-      {mode === 'create' && status.files.length > 0 && <p className="warning-box">Commit or stash your local changes before creating and switching to a new branch.</p>}
+      {mode === 'create' && hasChanges && !hasConflicts && <Field label="Uncommitted changes" hint={dirtyAction === 'carry'
+        ? 'Your staged, unstaged, and untracked changes will remain in the working tree on the new branch.'
+        : 'Your staged, unstaged, and untracked changes will be saved in Stashed changes. The new branch will start clean.'}>
+        <select value={dirtyAction} onChange={event => setDirtyAction(event.target.value as 'carry' | 'stash')} disabled={busy}>
+          <option value="carry">Bring changes to the new branch</option>
+          <option value="stash">Stash changes before creating the branch</option>
+        </select>
+      </Field>}
+      {mode === 'create' && hasConflicts && <p className="warning-box">Resolve conflicted files before creating a branch.</p>}
       {mode === 'rebase' && <p className="warning-box">Rebase rewrites history. Use merge instead for a branch that other people already work on.</p>}
       {action.error && <ErrorBox error={action.error} />}
       {action.pending && <Spinner label="Updating branches…" />}
     </div><footer className="dialog-footer"><button type="button" className="button" onClick={onClose} disabled={action.pending}>Cancel</button>
-      <button className={`button ${mode === 'delete' ? 'danger' : 'primary'}`} disabled={busy || action.pending || status.unborn || (mode === 'create' && status.files.length > 0) || ((mode === 'create' || mode === 'rename') && !name.trim()) || (mode !== 'create' && !selected)}>
+      <button className={`button ${mode === 'delete' ? 'danger' : 'primary'}`} disabled={busy || action.pending || status.unborn || (mode === 'create' && hasConflicts) || ((mode === 'create' || mode === 'rename') && !name.trim()) || (mode !== 'create' && !selected)}>
         {mode === 'create' ? 'Create branch' : mode === 'rename' ? 'Rename branch' : mode === 'delete' ? 'Delete branch' : mode === 'merge' ? 'Merge branch…' : 'Rebase branch…'}
       </button></footer></form>
   </Dialog>;
